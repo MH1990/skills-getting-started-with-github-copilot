@@ -25,6 +25,14 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <strong>Participants:</strong>
+            <ul class="participants-list">
+              ${details.participants.length === 0
+                ? '<li class="no-participants">No participants yet</li>'
+                : details.participants.map(email => `<li class="participant-item" data-activity="${name}" data-email="${email}">${email} <span class="delete-participant" title="Unregister">🗑️</span></li>`).join('')}
+            </ul>
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -62,6 +70,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // Herlaad activiteiten zodat de deelnemerslijst direct wordt bijgewerkt
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -69,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       messageDiv.classList.remove("hidden");
 
-      // Hide message after 5 seconds
+      // Verberg alleen de melding na 5 seconden, niet de deelnemerslijst
       setTimeout(() => {
         messageDiv.classList.add("hidden");
       }, 5000);
@@ -78,6 +88,32 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.className = "error";
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
+    }
+  });
+
+
+  // Event delegation voor verwijderen van deelnemers
+  activitiesList.addEventListener("click", async (event) => {
+    if (event.target.classList.contains("delete-participant")) {
+      const li = event.target.closest("li.participant-item");
+      if (!li) return;
+      const activity = li.getAttribute("data-activity");
+      const email = li.getAttribute("data-email");
+      if (!activity || !email) return;
+      if (!confirm(`Weet je zeker dat je ${email} wilt uitschrijven voor ${activity}?`)) return;
+      try {
+        const response = await fetch(`/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`, {
+          method: "DELETE",
+        });
+        const result = await response.json();
+        if (response.ok) {
+          fetchActivities();
+        } else {
+          alert(result.detail || "Kon deelnemer niet uitschrijven.");
+        }
+      } catch (error) {
+        alert("Fout bij uitschrijven van deelnemer.");
+      }
     }
   });
 
